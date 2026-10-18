@@ -8,7 +8,9 @@ const configured = () => !!(SB_URL && SB_KEY);
 function sb(path, opts) {
   opts = opts || {};
   return fetch(SB_URL + '/rest/v1/' + path, Object.assign({}, opts, {
-    headers: Object.assign({ apikey: SB_KEY, authorization: 'Bearer ' + SB_KEY, 'content-type': 'application/json' }, opts.headers)
+    headers: Object.assign({ apikey: SB_KEY, 'content-type': 'application/json' },
+      // Older style keys are JWTs and also go in Authorization; newer sb_secret_ keys must only be sent as apikey.
+      SB_KEY.startsWith('eyJ') ? { authorization: 'Bearer ' + SB_KEY } : {}, opts.headers)
   }));
 }
 
