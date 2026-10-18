@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1f6b52">
+<meta name="apple-mobile-web-app-title" content="Due">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>What's due</title>
+<style>
+:root{--bg:#eef1ee;--surface:#fbfcfb;--ink:#17201c;--mute:#5d6b63;--line:#d5dcd6;--accent:#1f6b52;--on:#fff;--late:#b3341f;--soon:#9a5b00;--done:#8a968f;
+--c0:#1f6b52;--c1:#2b5fd9;--c2:#b3341f;--c3:#9a5b00;--c4:#7a3db8;--c5:#0e7c86;--c6:#c2307a;--c7:#5b6b00;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#121815;--surface:#1a221e;--ink:#e6ede8;--mute:#92a198;--line:#2a352f;--accent:#58c29b;--on:#0c1511;--late:#ff8a73;--soon:#f0b45a;--done:#677269;
+--c0:#58c29b;--c1:#7fa8ff;--c2:#ff8a73;--c3:#f0b45a;--c4:#c79bff;--c5:#4fd0dc;--c6:#ff8fc4;--c7:#c5d86a;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) 0 env(safe-area-inset-left,0)}
+main{max-width:640px;margin:0 auto;padding:20px 16px 110px}
+h1{font:700 34px/1.1 Georgia,"Times New Roman",serif;margin:8px 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 18px}
+h2{font-size:15px;margin:22px 0 8px;display:flex;gap:8px;align-items:center}
+h2 span{color:var(--mute);font-weight:400}
+.late h2{color:var(--late)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+label.f{display:block;font-size:14px;color:var(--mute);margin-top:12px}
+input[type=url],input[type=password],input[type=text],input[type=time]{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:11px;font:16px system-ui;margin-top:4px}
+button{font:600 15px system-ui;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--on);padding:10px 14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:disabled{opacity:.6;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+select{padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:15px system-ui;max-width:100%}
+label.chk{display:flex;gap:6px;align-items:center;color:var(--mute);font-size:14px}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 10px;font:500 13px system-ui}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.item{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-left-width:5px;border-radius:10px;margin-bottom:8px}
+.item input{width:22px;height:22px;margin-top:2px;accent-color:var(--accent)}
+.t{font-weight:600;overflow-wrap:anywhere}
+.t a{color:inherit;text-decoration-color:var(--line);text-underline-offset:3px}
+.meta{color:var(--mute);font-size:14px;margin-top:2px}
+.cname{font-weight:600}
+.due{font-weight:600}.due.late{color:var(--late)}.due.soon{color:var(--soon)}
+.item.done .t{text-decoration:line-through;color:var(--done)}.item.done{opacity:.7}
+.empty{color:var(--mute);padding:14px 0}
+.help{color:var(--mute);font-size:14px;margin:0}
+.err{color:var(--late);margin:8px 0 0;font-size:14px;overflow-wrap:anywhere}
+.status{color:var(--mute);font-size:13px;margin-top:20px}
+/* calendar */
+.calhead{display:flex;align-items:center;gap:8px;margin:4px 0 8px}
+.calhead .mname{flex:1;text-align:center;font:700 18px Georgia,serif}
+.calhead button{padding:8px 12px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{text-align:center;font-size:12px;color:var(--mute);padding:2px 0}
+.cell{position:relative;min-height:56px;padding:5px 2px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:500 14px system-ui;display:flex;flex-direction:column;align-items:center;gap:4px}
+.cell.out{opacity:.4}
+.cell.today .num{background:var(--accent);color:var(--on);border-radius:50%;min-width:24px;padding:1px 4px}
+.cell.sel{outline:3px solid var(--accent);outline-offset:-1px}
+.num{line-height:1.3;text-align:center}
+.dots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.dots .dot{width:7px;height:7px}
+.dots small{font-size:10px;color:var(--mute);line-height:7px}
+.dots .dd{opacity:.35}
+/* bottom nav */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+nav .inner{display:flex;width:100%;max-width:640px;gap:4px}
+nav button{flex:1;background:transparent;color:var(--mute);border:0;border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font:600 12px system-ui}
+nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+
+.fab{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:6;width:56px;height:56px;border-radius:50%;padding:0;font:400 32px/1 system-ui;box-shadow:0 4px 14px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
+dialog{border:0;padding:0;margin:auto auto 0 auto;width:100%;max-width:640px;border-radius:16px 16px 0 0;background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.sheet{padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h3{margin:0 0 4px;font:700 20px Georgia,serif}
+.sheet input[type=text],.sheet input[type=date],.sheet input[type=time],.sheet select{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:11px;font:16px system-ui;margin-top:4px}
+.sheet label.chk{margin-top:12px}
+.linkbtn{background:none;border:0;color:var(--accent);padding:0;margin-left:8px;font:600 14px system-ui;text-decoration:underline}
+.tag{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:6px;white-space:nowrap}
+.spacer{width:22px;height:22px;margin-top:2px;display:block}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>What's due</h1>
+<p class="sub" id="sub">Add a calendar link to see everything in one place.</p>
+
+<section class="card" id="welcome" hidden>
+  <p class="help">Create your account on this device. Ask whoever runs this app for the invite code.</p>
+  <label class="f" for="wname">Your name (optional)</label>
+  <input type="text" id="wname" autocomplete="off" maxlength="40">
+  <label class="f" for="wcode">Invite code</label>
+  <input type="password" id="wcode" autocomplete="off">
+  <div class="row"><button id="wgo">Create account</button></div>
+  <p class="help" style="margin-top:16px">Already have an account on another device?</p>
+  <label class="f" for="wkey">Account key</label>
+  <input type="password" id="wkey" autocomplete="off">
+  <div class="row"><button class="ghost" id="wkeygo">Sign in with this key</button></div>
+  <div class="err" id="werr" role="alert"></div>
+</section>
+
+<section class="card" id="setup" hidden>
+  <p class="help">Your links are stored encrypted in your account. Add one or both, or skip them and use only your own items.</p>
+  <label class="f" for="link">Canvas calendar link (Calendar, then Calendar Feed)</label>
+  <input type="url" id="link" placeholder="https://yourschool.instructure.com/feeds/calendars/user_….ics" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <label class="f" for="alink">Apple Calendar link (optional)</label>
+  <input type="url" id="alink" placeholder="webcal://p01-caldav.icloud.com/published/…" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <p class="help" style="margin-top:6px">On iPhone: Calendar, Calendars, tap the (i) next to a calendar, turn on Public Calendar, Share Link.</p>
+  <label class="f" for="mtime">Morning reminder time</label>
+  <input type="time" id="mtime" value="08:00">
+  <label class="f" for="etime">Evening reminder time (for what is due tomorrow)</label>
+  <input type="time" id="etime" value="19:00">
+  <div class="row"><button id="save">Save and load</button><button class="ghost" id="cancel" hidden>Cancel</button></div>
+  <div class="err" id="serr" role="alert"></div>
+  <div id="acct" hidden style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
+    <strong>Account</strong>
+    <p class="help" style="margin-top:4px">To use your account on another device, choose "Sign in with this key" there and paste your account key. Keep it private.</p>
+    <div class="row"><button class="ghost" id="showkey">Show my account key</button><button class="ghost" id="signout">Sign out of this device</button></div>
+    <input type="text" id="keyval" readonly hidden style="margin-top:8px">
+  </div>
+  <div id="notif" hidden style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
+    <strong>Notifications</strong>
+    <p class="help" id="nmsg" style="margin-top:4px"></p>
+    <div class="row" style="margin-top:10px"><button class="ghost" id="nbtn" hidden></button><button class="ghost" id="ntest" hidden>Send test</button></div>
+    <div class="err" id="nerr" role="alert"></div>
+  </div>
+</section>
+
+<section id="app" hidden>
+  <div class="tools">
+    <select id="course" aria-label="Filter by course"></select>
+    <label class="chk"><input type="checkbox" id="hide"> Hide done</label>
+    <button class="ghost" id="refresh">Refresh</button>
+    <button class="ghost" id="change">Settings</button>
+  </div>
+  <div class="legend" id="legend" aria-label="Course colors. Tap a color to change it."></div>
+  <div class="err" id="rerr" role="alert"></div>
+  <div id="view"></div>
+  <div class="status" id="status"></div>
+</section>
+</main>
+
+<button class="fab" id="fab" aria-label="Add item" hidden>+</button>
+<nav id="nav" aria-label="Views" hidden><div class="inner" id="navin"></div></nav>
+
+<dialog id="sheet" aria-labelledby="stitle">
+  <div class="sheet">
+    <h3 id="stitle">Add item</h3>
+    <label class="f" for="ctype">Type</label>
+    <select id="ctype"><option value="assignment">Assignment</option><option value="task">Task</option><option value="event">Event</option></select>
+    <label class="f" for="ctitle">Title</label>
+    <input type="text" id="ctitle" autocomplete="off" maxlength="120">
+    <label class="f" for="cdate">Date</label>
+    <input type="date" id="cdate">
+    <label class="chk"><input type="checkbox" id="call" checked> All day</label>
+    <div id="timewrap" hidden><label class="f" for="ctime">Time</label><input type="time" id="ctime"></div>
+    <label class="f" for="ccourse">Course or calendar</label>
+    <select id="ccourse"></select>
+    <input type="text" id="cnew" placeholder="New course name" maxlength="40" hidden>
+    <div class="err" id="cerr" role="alert"></div>
+    <div class="row"><button id="csave">Save</button><button class="ghost" id="ccancel">Cancel</button><button class="ghost" id="cdel" hidden style="margin-left:auto;color:var(--late);border-color:var(--late)">Delete</button></div>
+  </div>
+</dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+const K={link:'due.link',alink:'due.alink',pass:'due.pass',ics:'due.ics',aics:'due.aics',at:'due.at',done:'due.done',view:'due.view',colors:'due.colors',custom:'due.custom',push:'due.push',token:'due.token',profile:'due.profile',imported:'due.imported'};
+const REFRESH_MS=5*60*1000, NCOL=8;
+const SOURCES=[{id:'canvas',name:'Canvas',field:'canvas_link',ics:K.ics},{id:'apple',name:'Apple Calendar',field:'apple_link',ics:K.aics}];
+// Add future screens here; the bottom bar builds itself from this list.
+const VIEWS=[
+  {id:'list',label:'List',icon:'<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>'},
+  {id:'cal',label:'Calendar',icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'}
+];
+let profile=null,screen='app',events=[],done={},colors={},custom=[],view='list',month=null,sel=null,lastFetch=0,editingId=null;
+const sget=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const sset=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+
+//<core
+function unfold(t){return t.replace(/\r?\n[ \t]/g,'')}
+function unesc(s){return String(s||'').replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1').trim()}
+function pd(v){const m=String(v||'').trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);if(!m)return null;
+  const [,y,mo,d,h,mi,s,z]=m;
+  if(!h)return{date:new Date(+y,+mo-1,+d,23,59),allDay:true,z:false};
+  return{date:z?new Date(Date.UTC(+y,+mo-1,+d,+h,+mi,+s)):new Date(+y,+mo-1,+d,+h,+mi,+s),allDay:false,z:!!z}}
+const day0=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+const dkey=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+function monthCells(y,m){
+  const first=new Date(y,m,1),n=new Date(y,m+1,0).getDate();
+  const total=Math.ceil((first.getDay()+n)/7)*7,out=[];
+  for(let i=0;i<total;i++)out.push(new Date(y,m,1-first.getDay()+i));
+  return out}
+
+/* repeating events (simple rules only: daily, weekly with days, monthly by date, yearly) */
+const DOW={MO:0,TU:1,WE:2,TH:3,FR:4,SA:5,SU:6};
+function ruleOf(s){const o={};for(const p of String(s).split(';')){const i=p.indexOf('=');if(i>0)o[p.slice(0,i).toUpperCase()]=p.slice(i+1)}return o}
+function addDays(d,n,utc){const x=new Date(d);utc?x.setUTCDate(x.getUTCDate()+n):x.setDate(x.getDate()+n);return x}
+function addMonths(d,n,utc){
+  const x=new Date(d),day=utc?x.getUTCDate():x.getDate();
+  utc?x.setUTCDate(1):x.setDate(1);
+  utc?x.setUTCMonth(x.getUTCMonth()+n):x.setMonth(x.getMonth()+n);
+  const dim=utc?new Date(Date.UTC(x.getUTCFullYear(),x.getUTCMonth()+1,0)).getUTCDate():new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+  if(day>dim)return null;
+  utc?x.setUTCDate(day):x.setDate(day);return x}
+function expand(ds,ruleStr,wEnd){
+  const r=ruleOf(ruleStr),f=r.FREQ,n=Math.max(1,+r.INTERVAL||1),cap=r.COUNT?+r.COUNT:Infinity;
+  const u=r.UNTIL?pd(r.UNTIL):null,until=u?u.date:null,utc=ds.z,start=ds.date,out=[];
+  if(r.BYSETPOS||(f==='MONTHLY'&&(r.BYDAY||(r.BYMONTHDAY&&+r.BYMONTHDAY!==(utc?start.getUTCDate():start.getDate()))))||/\d/.test(r.BYDAY||''))return [start];
+  let count=0;
+  const push=d=>{if(d<start)return true;if(until&&d>until)return false;if(d>wEnd)return false;out.push(d);count++;return count<cap};
+  if(f==='DAILY'){for(let i=0;i<4000;i++)if(!push(addDays(start,i*n,utc)))break}
+  else if(f==='WEEKLY'){
+    const sd=utc?start.getUTCDay():start.getDay();
+    const days=r.BYDAY?r.BYDAY.split(',').map(x=>DOW[x.slice(-2)]).filter(x=>x!==undefined).sort((a,b)=>a-b):[(sd+6)%7];
+    const base=addDays(start,-((sd+6)%7),utc);
+    outer:for(let w=0;w<700;w++)for(const dy of days)if(!push(addDays(base,w*7*n+dy,utc)))break outer}
+  else if(f==='MONTHLY'){for(let i=0;i<500;i++){const d=addMonths(start,i*n,utc);if(!d)continue;if(!push(d))break}}
+  else if(f==='YEARLY'){for(let i=0;i<100;i++){const d=addMonths(start,12*i*n,utc);if(!d)continue;if(!push(d))break}}
+  else return [start];
+  return out}
+
+function parseICS(text,o){
+  o=o||{};const wS=o.wS||new Date(0),wE=o.wE||new Date(2100,0,1);
+  const calm=(text.match(/^X-WR-CALNAME[^:\r\n]*:(.*)$/m)||[])[1];
+  const defCourse=o.defaultCourse||(calm?unesc(calm):'Calendar');
+  const raw=[],ov=new Set();
+  const okey=(uid,ds)=>uid+'|'+(ds.allDay?dkey(ds.date):ds.date.getTime());
+  for(const b of unfold(text).split('BEGIN:VEVENT').slice(1)){
+    const f={};
+    for(const line of b.split('END:VEVENT')[0].split(/\r?\n/)){
+      const i=line.indexOf(':');if(i<1)continue;
+      const k=line.slice(0,i).split(';')[0].toUpperCase(),val=line.slice(i+1);
+      if(k==='EXDATE')f.EXDATE=(f.EXDATE?f.EXDATE+',':'')+val;else if(!(k in f))f[k]=val}
+    if(/CANCELLED/i.test(f.STATUS||''))continue;
+    const ds=f.DTSTART&&pd(f.DTSTART);if(!ds||!f.SUMMARY)continue;
+    const uid=(f.UID||f.SUMMARY+f.DTSTART).trim();
+    if(f['RECURRENCE-ID']){const rid=pd(f['RECURRENCE-ID']);if(rid)ov.add(okey(uid,rid))}
+    raw.push({f,ds,uid})}
+  const out=[];
+  for(const {f,ds,uid} of raw){
+    let title=unesc(f.SUMMARY),course=defCourse;
+    if(o.bracket){const m=title.match(/\s*\[([^\]]+)\]\s*$/);course='Other';if(m){course=m[1];title=title.slice(0,m.index)}}
+    let dates=[ds.date];
+    if(f.RRULE&&!f['RECURRENCE-ID']){
+      const ex=new Set((f.EXDATE||'').split(',').map(pd).filter(Boolean).map(x=>x.allDay?dkey(x.date):x.date.getTime()));
+      dates=expand(ds,f.RRULE,wE).filter(d=>{const k=ds.allDay?dkey(d):d.getTime();return !ex.has(k)&&!ov.has(uid+'|'+k)})}
+    for(const d of dates){
+      if(d<wS||d>wE)continue;
+      out.push({id:(o.src||'x')+':'+uid+(f.RRULE?'@'+d.getTime():''),title,course,due:d,allDay:ds.allDay,url:(f.URL||'').trim(),src:o.src||'x',kind:o.kind||'assignment'})}}
+  return out.sort((a,b)=>a.due-b.due)}
+function customToEvent(c){
+  const m=String(c.date).match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;
+  let d=new Date(+m[1],+m[2]-1,+m[3],23,59),allDay=true;
+  const t=String(c.time||'').match(/^(\d{2}):(\d{2})$/);
+  if(t){d=new Date(+m[1],+m[2]-1,+m[3],+t[1],+t[2]);allDay=false}
+  return{id:c.id,title:c.title,course:c.course||'Personal',due:d,allDay,url:'',src:'custom',kind:c.type||'assignment'}}
+//</core
+
+const fmtDay=d=>d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+const fmtTime=d=>d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+function rel(d,now){const n=Math.round((day0(d)-day0(now))/864e5);
+  if(n===0)return'Today';if(n===1)return'Tomorrow';if(n===-1)return'Yesterday';return n<0?-n+' days ago':'In '+n+' days'}
+const pad2=n=>String(n).padStart(2,'0');
+const isoDate=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+
+/* ---------- colors ---------- */
+function assignColors(){
+  const used=new Set(Object.values(colors));let changed=false;
+  for(const c of [...new Set(events.map(e=>e.course))].sort()){
+    if(colors[c]!==undefined)continue;
+    let i=0;while(used.has(i)&&i<NCOL)i++;
+    if(i>=NCOL)i=Object.keys(colors).length%NCOL;
+    colors[c]=i;used.add(i);changed=true}
+  if(changed)sset(K.colors,JSON.stringify(colors))}
+const colorOf=c=>'var(--c'+((colors[c]||0)%NCOL)+')';
+function renderLegend(){
+  const box=$('legend');box.replaceChildren();
+  for(const c of [...new Set(events.map(e=>e.course))].sort()){
+    const b=document.createElement('button');b.className='chip';b.type='button';
+    b.setAttribute('aria-label','Change color for '+c);
+    const d=document.createElement('span');d.className='dot';d.style.background=colorOf(c);
+    b.append(d,c);
+    b.onclick=()=>{colors[c]=((colors[c]||0)+1)%NCOL;sset(K.colors,JSON.stringify(colors));render()};
+    box.appendChild(b)}}
+
+/* ---------- shared bits ---------- */
+function visible(e){
+  const s=$('course').value||'All';
+  if(s!=='All'&&e.course!==s)return false;
+  if($('hide').checked&&done[e.id])return false;
+  return true}
+function itemEl(e,now){
+  const isEv=e.kind==='event';
+  const late=!isEv&&e.due<now&&!done[e.id],soon=!late&&e.due-now<864e5&&e.due>=now;
+  const el=document.createElement('div');el.className='item'+(done[e.id]?' done':'');
+  el.style.borderLeftColor=colorOf(e.course);
+  let lead;
+  if(isEv){lead=document.createElement('span');lead.className='spacer'}
+  else{lead=document.createElement('input');lead.type='checkbox';lead.checked=!!done[e.id];lead.setAttribute('aria-label','Mark done: '+e.title);
+    lead.onchange=()=>{lead.checked?done[e.id]=1:delete done[e.id];sset(K.done,JSON.stringify(done));syncOp({op:'done_set',id:e.id,done:lead.checked});render()}}
+  const box=document.createElement('div'),t=document.createElement('div');t.className='t';
+  if(/^https?:/i.test(e.url)){const a=document.createElement('a');a.href=e.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=e.title;t.appendChild(a)}else t.textContent=e.title;
+  if(e.src==='custom'){const g=document.createElement('span');g.className='tag';g.textContent=e.kind==='event'?'Event':e.kind==='task'?'Task':'Custom';t.appendChild(g)}
+  const meta=document.createElement('div');meta.className='meta';
+  const du=document.createElement('span');du.className='due'+(late?' late':soon?' soon':'');du.textContent=rel(e.due,now);
+  const cn=document.createElement('span');cn.className='cname';cn.style.color=colorOf(e.course);cn.textContent=e.course;
+  meta.append(du,' \u2013 '+fmtDay(e.due)+(e.allDay?'':', '+fmtTime(e.due))+' \u2013 ',cn);
+  if(e.src==='custom'){const b=document.createElement('button');b.type='button';b.className='linkbtn';b.textContent='Edit';b.setAttribute('aria-label','Edit '+e.title);b.onclick=()=>openSheet(e.id);meta.appendChild(b)}
+  box.append(t,meta);el.append(lead,box);return el}
+
+/* ---------- list view ---------- */
+function renderList(root){
+  const now=new Date(),today=day0(now),wk=new Date(today.getTime()+7*864e5);
+  const groups=[['Overdue','late',[]],['Today','',[]],['This week','',[]],['Later','',[]]];
+  for(const e of events){
+    if(!visible(e))continue;
+    if(e.kind==='event'&&e.due<now)continue;
+    if(done[e.id]&&e.due<now)continue;
+    const dd=day0(e.due);
+    groups[e.due<now?0:dd.getTime()===today.getTime()?1:dd<wk?2:3][2].push(e)}
+  let n=0;
+  for(const[name,cls,items]of groups){
+    if(!items.length)continue;n+=items.length;
+    const sec=document.createElement('div');sec.className=cls;
+    const h=document.createElement('h2');h.textContent=name+' ';const c=document.createElement('span');c.textContent=items.length;h.appendChild(c);sec.appendChild(h);
+    for(const e of items)sec.appendChild(itemEl(e,now));
+    root.appendChild(sec)}
+  if(!n){const p=document.createElement('p');p.className='empty';p.textContent='Nothing to show. Tap + to add something, or change the filter.';root.appendChild(p)}}
+
+/* ---------- calendar view ---------- */
+function renderCal(root){
+  const now=new Date(),today=day0(now);
+  if(!month)month=new Date(today.getFullYear(),today.getMonth(),1);
+  const head=document.createElement('div');head.className='calhead';
+  const prev=document.createElement('button');prev.className='ghost';prev.textContent='\u2039';prev.setAttribute('aria-label','Previous month');
+  const next=document.createElement('button');next.className='ghost';next.textContent='\u203A';next.setAttribute('aria-label','Next month');
+  const mn=document.createElement('div');mn.className='mname';mn.textContent=month.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const tb=document.createElement('button');tb.className='ghost';tb.textContent='Today';
+  prev.onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);sel=null;render()};
+  next.onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);sel=null;render()};
+  tb.onclick=()=>{month=new Date(today.getFullYear(),today.getMonth(),1);sel=today;render()};
+  head.append(prev,mn,next,tb);root.appendChild(head);
+  const byDay={};
+  for(const e of events){if(!visible(e))continue;(byDay[dkey(e.due)]=byDay[dkey(e.due)]||[]).push(e)}
+  const grid=document.createElement('div');grid.className='grid';
+  for(const d of ['S','M','T','W','T','F','S']){const x=document.createElement('div');x.className='dow';x.textContent=d;grid.appendChild(x)}
+  for(const d of monthCells(month.getFullYear(),month.getMonth())){
+    const list=byDay[dkey(d)]||[];
+    const b=document.createElement('button');b.type='button';
+    b.className='cell'+(d.getMonth()!==month.getMonth()?' out':'')+(d.getTime()===today.getTime()?' today':'')+(sel&&d.getTime()===sel.getTime()?' sel':'');
+    b.setAttribute('aria-label',d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+', '+list.length+' due');
+    const num=document.createElement('span');num.className='num';num.textContent=d.getDate();
+    const dots=document.createElement('span');dots.className='dots';
+    for(const e of list.slice(0,4)){const dt=document.createElement('span');dt.className='dot'+(done[e.id]?' dd':'');dt.style.background=colorOf(e.course);dots.appendChild(dt)}
+    if(list.length>4){const m=document.createElement('small');m.textContent='+'+(list.length-4);dots.appendChild(m)}
+    b.append(num,dots);
+    b.onclick=()=>{sel=d;if(d.getMonth()!==month.getMonth())month=new Date(d.getFullYear(),d.getMonth(),1);render()};
+    grid.appendChild(b)}
+  root.appendChild(grid);
+  const h=document.createElement('h2');
+  if(sel){
+    const items=byDay[dkey(sel)]||[];
+    h.textContent=sel.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+' ';
+    const c=document.createElement('span');c.textContent=items.length;h.appendChild(c);root.appendChild(h);
+    if(!items.length){const p=document.createElement('p');p.className='empty';p.textContent='Nothing on this day. Tap + to add something.';root.appendChild(p)}
+    for(const e of items)root.appendChild(itemEl(e,now))}
+  else{h.textContent='Tap a day to see what is on it';root.appendChild(h)}}
+
+/* ---------- add / edit sheet ---------- */
+function courseOptions(selected){
+  const names=[...new Set([...events.map(e=>e.course),'Personal'])].sort();
+  const box=$('ccourse');box.replaceChildren();
+  for(const c of names){const o=document.createElement('option');o.value=c;o.textContent=c;box.appendChild(o)}
+  const n=document.createElement('option');n.value='__new';n.textContent='New course\u2026';box.appendChild(n);
+  box.value=names.includes(selected)?selected:'Personal';$('cnew').hidden=true;$('cnew').value=''}
+function openSheet(id){
+  const c=id?custom.find(x=>x.id===id):null;editingId=c?c.id:null;
+  $('stitle').textContent=c?'Edit item':'Add item';
+  $('cerr').textContent='';$('cdel').hidden=!c;
+  $('ctype').value=c?c.type:'assignment';
+  $('ctitle').value=c?c.title:'';
+  $('cdate').value=c?c.date:isoDate(view==='cal'&&sel?sel:new Date());
+  $('call').checked=c?!c.time:true;$('ctime').value=c&&c.time?c.time:'';$('timewrap').hidden=$('call').checked;
+  courseOptions(c?c.course:'Personal');
+  $('sheet').showModal();$('ctitle').focus()}
+$('fab').onclick=()=>openSheet(null);
+$('call').onchange=()=>{$('timewrap').hidden=$('call').checked;if(!$('call').checked&&!$('ctime').value)$('ctime').value='09:00'};
+$('ccourse').onchange=()=>{const n=$('ccourse').value==='__new';$('cnew').hidden=!n;if(n)$('cnew').focus()};
+$('ccancel').onclick=()=>$('sheet').close();
+$('cdel').onclick=()=>{const gone=editingId;custom=custom.filter(x=>x.id!==gone);delete done[gone];sset(K.custom,JSON.stringify(custom));sset(K.done,JSON.stringify(done));syncOp({op:'custom_delete',id:gone});$('sheet').close();rebuild()};
+$('csave').onclick=()=>{
+  const title=$('ctitle').value.trim(),date=$('cdate').value;
+  let course=$('ccourse').value;if(course==='__new')course=$('cnew').value.trim();
+  if(!title){$('cerr').textContent='Add a title.';return}
+  if(!date){$('cerr').textContent='Pick a date.';return}
+  if(!course){$('cerr').textContent='Name the new course.';return}
+  const time=$('call').checked?'':$('ctime').value;
+  if(!$('call').checked&&!time){$('cerr').textContent='Pick a time, or choose All day.';return}
+  const item={id:editingId||'c:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),title,type:$('ctype').value,date,time,course};
+  if(editingId)custom=custom.map(x=>x.id===editingId?item:x);else custom.push(item);
+  sset(K.custom,JSON.stringify(custom));syncOp({op:'custom_upsert',item});$('sheet').close();
+  const d=customToEvent(item);if(d&&view==='cal'){sel=day0(d.due);month=new Date(d.due.getFullYear(),d.due.getMonth(),1)}
+  rebuild()};
+
+/* ---------- shell ---------- */
+function renderNav(){
+  const box=$('navin');box.replaceChildren();
+  for(const v of VIEWS){
+    const b=document.createElement('button');b.type='button';
+    if(v.id===view)b.setAttribute('aria-current','page');
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+v.icon+'</svg><span>'+v.label+'</span>';
+    b.onclick=()=>{view=v.id;sset(K.view,view);render();window.scrollTo(0,0)};
+    box.appendChild(b)}}
+function render(){
+  const root=$('view');root.replaceChildren();
+  assignColors();renderLegend();renderNav();
+  view==='cal'?renderCal(root):renderList(root);
+  const now=new Date(),open=events.filter(e=>e.kind!=='event'&&!done[e.id]&&e.due>=now).length;
+  $('sub').textContent=open+' upcoming across '+new Set(events.map(e=>e.course)).size+' courses.';
+  const at=+sget(K.at)||0;
+  $('status').textContent=at?'Calendars updated '+new Date(at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'. Refreshes automatically.':''}
+
+function srcOpts(s){
+  const now=Date.now();
+  return s.id==='canvas'
+    ?{src:'canvas',kind:'assignment',bracket:true,defaultCourse:'Other'}
+    :{src:'apple',kind:'event',bracket:false,wS:new Date(now-60*864e5),wE:new Date(now+400*864e5)}}
+function showApp(on){$('welcome').hidden=true;$('setup').hidden=on;$('app').hidden=!on;$('nav').hidden=!on;$('fab').hidden=!on}
+function rebuild(){
+  const all=[];
+  for(const s of SOURCES){const t=sget(s.ics);if(t&&linkOf(s))all.push(...parseICS(t,srcOpts(s)))}
+  for(const c of custom){const e=customToEvent(c);if(e)all.push(e)}
+  all.sort((a,b)=>a.due-b.due);events=all;
+  const prev=$('course').value;
+  const cs=['All',...[...new Set(all.map(e=>e.course))].sort()];
+  $('course').replaceChildren(...cs.map(c=>{const o=document.createElement('option');o.textContent=c;return o}));
+  if(cs.includes(prev))$('course').value=prev;
+  if(screen==='app')showApp(true);render()}
+
+/* ---------- account + sync ---------- */
+const token=()=>sget(K.token)||'';
+const authH=()=>({'content-type':'application/json','authorization':'Bearer '+token()});
+const linkOf=s=>(profile&&profile[s.field])||'';
+const deviceTz=()=>Intl.DateTimeFormat().resolvedOptions().timeZone;
+async function api(path,method,body){
+  const r=await fetch(path,{method,headers:authH(),body:body?JSON.stringify(body):undefined});
+  const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch(e){}
+  if(!r.ok){const err=new Error((j&&j.error)||'The server answered with an error ('+r.status+').');err.status=r.status;throw err}
+  return j}
+function syncOp(body){api('/api/sync','POST',body).catch(e=>{$('rerr').textContent='Saved on this device, but could not sync: '+e.message})}
+async function pull(link){
+  const r=await fetch('/api/feed',{method:'POST',headers:authH(),body:JSON.stringify({url:link})});
+  const body=await r.text();
+  if(!r.ok){let m=null;try{m=JSON.parse(body).error}catch(e){}throw new Error(m||'The server answered with an error ('+r.status+').')}
+  return body}
+function showWelcome(msg){screen='welcome';$('welcome').hidden=false;$('setup').hidden=true;$('app').hidden=true;$('nav').hidden=true;$('fab').hidden=true;$('werr').textContent=msg||'';$('sub').textContent='Create your account to get started.'}
+function extras(on){$('notif').hidden=!on;$('acct').hidden=!on;$('keyval').hidden=true}
+async function pullServer(){
+  const j=await api('/api/sync','GET');
+  profile=j.profile;custom=j.custom||[];done={};for(const id of j.done||[])done[id]=1;
+  sset(K.profile,JSON.stringify(profile));sset(K.custom,JSON.stringify(custom));sset(K.done,JSON.stringify(done))}
+async function migrateLocal(){ // one time: move anything saved on this device before accounts existed
+  const fields={timezone:deviceTz()},oldC=sget(K.link)||'',oldA=sget(K.alink)||'';
+  let oc=[],od={};try{oc=JSON.parse(sget(K.custom)||'[]')}catch(e){}try{od=JSON.parse(sget(K.done)||'{}')}catch(e){}
+  if(oldC)fields.canvas_link=oldC;if(oldA)fields.apple_link=oldA;
+  try{await api('/api/sync','POST',{op:'profile_update',fields})}catch(e){delete fields.canvas_link;delete fields.apple_link;try{await api('/api/sync','POST',{op:'profile_update',fields})}catch(e2){}}
+  if((Array.isArray(oc)&&oc.length)||Object.keys(od).length){try{await api('/api/sync','POST',{op:'import',custom:Array.isArray(oc)?oc:[],done:Object.keys(od)})}catch(e){}}
+  sset(K.link,'');sset(K.alink,'');sset(K.pass,'');sset(K.imported,'1')}
+async function signup(code,name){
+  const r=await fetch('/api/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code,name,timezone:deviceTz()})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||'Could not create your account.');
+  sset(K.token,j.token);sset(K.imported,'')}
+function hasData(){return !!(profile&&(profile.canvas_link||profile.apple_link))||custom.length>0}
+async function afterSignIn(){
+  try{if(!sget(K.imported))await migrateLocal();await pullServer()}
+  catch(e){if(e.status===401){sset(K.token,'');showWelcome('Your account was not found on the server. Create it again or use your account key.');return}}
+  resyncPush();
+  if(hasData()){screen='app';rebuild();refresh(false)}else openSettings(true)}
+function openSettings(first){
+  screen='settings';showApp(false);extras(true);updateNotifUI();$('cancel').hidden=!!first;$('serr').textContent='';
+  const p=profile||{};$('link').value=p.canvas_link||'';$('alink').value=p.apple_link||'';
+  $('mtime').value=p.morning_time||'08:00';$('etime').value=p.evening_time||'19:00'}
+$('wgo').onclick=async()=>{
+  const code=$('wcode').value.trim();$('werr').textContent='';
+  if(!code){$('werr').textContent='Enter the invite code.';return}
+  $('wgo').disabled=true;
+  try{await signup(code,$('wname').value.trim());await afterSignIn()}catch(e){$('werr').textContent=e.message}
+  finally{$('wgo').disabled=false}};
+$('wkeygo').onclick=async()=>{
+  const key=$('wkey').value.trim();$('werr').textContent='';
+  if(!key){$('werr').textContent='Paste your account key.';return}
+  $('wkeygo').disabled=true;const old=token();sset(K.token,key);
+  try{await pullServer();sset(K.imported,'1');await afterSignIn()}
+  catch(e){sset(K.token,old);$('werr').textContent=e.status===401?'That account key was not found.':e.message}
+  finally{$('wkeygo').disabled=false}};
+
+async function refresh(manual){
+  if(!token())return;
+  $('refresh').disabled=true;if(manual)$('rerr').textContent='';
+  const errs=[];
+  try{
+    try{await pullServer()}catch(e){if(e.status===401){sset(K.token,'');showWelcome('Your account was not found on the server. Create it again or use your account key.');return}}
+    for(const s of SOURCES){
+      const l=linkOf(s);if(!l)continue;
+      try{const t=await pull(l);if(!parseICS(t,srcOpts(s)).length)throw new Error('no events found.');sset(s.ics,t)}
+      catch(e){errs.push(s.name+': '+(e.message||'could not refresh.'))}}
+    sset(K.at,String(Date.now()));lastFetch=Date.now();
+    if(hasData())rebuild();else if(screen==='app')openSettings(true);
+  }finally{$('refresh').disabled=false}
+  $('rerr').textContent=errs.length?errs.join(' ')+' Showing the last saved copy.':''}
+
+$('save').onclick=async()=>{
+  profile=profile||{};
+  const links={canvas_link:$('link').value.trim(),apple_link:$('alink').value.trim()};
+  $('serr').textContent='';$('save').disabled=true;const errs=[];
+  try{
+    for(const s of SOURCES){
+      const l=links[s.field];if(!l)continue;
+      try{const t=await pull(l);if(!parseICS(t,srcOpts(s)).length)throw new Error('no events found in that calendar.');sset(s.ics,t)}
+      catch(e){errs.push(s.name+': '+e.message);links[s.field]=profile[s.field]||''}}
+    const fields=Object.assign({},links,{morning_time:$('mtime').value||'08:00',evening_time:$('etime').value||'19:00',timezone:deviceTz()});
+    await api('/api/sync','POST',{op:'profile_update',fields});
+    profile=Object.assign({},profile,fields);sset(K.profile,JSON.stringify(profile));
+    sset(K.at,String(Date.now()));lastFetch=Date.now();
+    screen='app';$('cancel').hidden=true;extras(false);rebuild();
+    $('rerr').textContent=errs.join(' ')}
+  catch(e){$('serr').textContent=e.message}
+  finally{$('save').disabled=false}};
+$('change').onclick=()=>openSettings(false);
+$('cancel').onclick=()=>{screen='app';$('cancel').hidden=true;extras(false);showApp(true)};
+$('showkey').onclick=()=>{const k=$('keyval');k.value=token();k.hidden=false;k.select()};
+$('signout').onclick=async()=>{
+  if(!confirm('Sign out of this device? Your data stays saved in your account.'))return;
+  try{const sub=await currentSub();if(sub){await api('/api/subscribe','DELETE',{endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe().catch(()=>{})}}catch(e){}
+  for(const k of [K.token,K.profile,K.ics,K.aics,K.custom,K.done,K.imported,K.push,K.pass])sset(k,'');
+  location.reload()};
+$('refresh').onclick=()=>refresh(true);
+$('course').onchange=render;$('hide').onchange=render;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastFetch>60000)refresh(false)});
+setInterval(()=>{if(!document.hidden)refresh(false)},REFRESH_MS);
+setInterval(()=>{if(!$('app').hidden)render()},60000);
+
+/* ---------- notifications ---------- */
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=()=>window.navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function b64ToU8(s){const p='='.repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b);return Uint8Array.from(r,c=>c.charCodeAt(0))}
+const authHdr=()=>authH();
+async function currentSub(){try{const reg=await navigator.serviceWorker.ready;return await reg.pushManager.getSubscription()}catch(e){return null}}
+async function updateNotifUI(){
+  const msg=$('nmsg'),btn=$('nbtn'),test=$('ntest');$('nerr').textContent='';btn.hidden=true;test.hidden=true;
+  if(isIOS&&!isStandalone()){msg.textContent='To get notifications on iPhone, first add this app to your Home Screen (Share, then Add to Home Screen), then open it from the new icon and come back here.';return}
+  if(!pushSupported()){msg.textContent='This browser does not support notifications for web apps.';return}
+  if(Notification.permission==='denied'){msg.textContent='Notifications are blocked for this app. Turn them on in your phone or browser settings, then reopen the app.';return}
+  const sub=await currentSub();
+  if(sub&&Notification.permission==='granted'){msg.textContent='On for this device. You will get a summary in the morning and a heads-up the evening before.';btn.textContent='Turn off';btn.hidden=false;test.hidden=false}
+  else{msg.textContent='Get a morning summary and an evening heads-up on this device.';btn.textContent='Turn on';btn.hidden=false}}
+async function resyncPush(){ // keeps the server's copy of this device's notification address current
+  try{
+    if(!pushSupported()||Notification.permission!=='granted')return;
+    const sub=await currentSub();if(!sub)return;
+    await api('/api/subscribe','POST',{subscription:sub.toJSON(),timezone:deviceTz()})}
+  catch(e){}}
+$('nbtn').onclick=async()=>{
+  const btn=$('nbtn'),err=$('nerr');err.textContent='';btn.disabled=true;
+  try{
+    const existing=await currentSub();
+    if(existing){
+      await fetch('/api/subscribe',{method:'DELETE',headers:authHdr(),body:JSON.stringify({endpoint:existing.endpoint})}).catch(()=>{});
+      await existing.unsubscribe();sset(K.push,'');return}
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted')throw new Error('Permission was not granted.');
+    const kr=await fetch('/api/push-key');const kj=await kr.json().catch(()=>({}));
+    if(!kr.ok||!kj.key)throw new Error(kj.error||'Push is not set up on the server yet.');
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(kj.key)});
+    const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const r=await fetch('/api/subscribe',{method:'POST',headers:authHdr(),body:JSON.stringify({subscription:sub.toJSON(),timezone:tz})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){await sub.unsubscribe().catch(()=>{});throw new Error(j.error||'Could not save this device.')}
+    sset(K.push,'1')}
+  catch(e){err.textContent=e.message||'Something went wrong.'}
+  finally{btn.disabled=false;updateNotifUI()}};
+$('ntest').onclick=async()=>{
+  const e=$('nerr'),b=$('ntest');e.style.color='';e.textContent='';b.disabled=true;
+  try{await api('/api/send','POST',{test:true});e.style.color='var(--mute)';e.textContent='Sent. It should arrive in a few seconds.'}
+  catch(x){e.textContent=x.message}
+  finally{b.disabled=false}};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+(async function init(){
+  try{done=JSON.parse(sget(K.done)||'{}')}catch(e){done={}}
+  try{colors=JSON.parse(sget(K.colors)||'{}')}catch(e){colors={}}
+  try{custom=JSON.parse(sget(K.custom)||'[]');if(!Array.isArray(custom))custom=[]}catch(e){custom=[]}
+  try{profile=JSON.parse(sget(K.profile)||'null')}catch(e){profile=null}
+  const v=sget(K.view);if(VIEWS.some(x=>x.id===v))view=v;
+  sel=day0(new Date());
+  if(!token()){ // devices set up before accounts existed: reuse the saved passcode as the invite code
+    const code=sget(K.pass);if(code){try{await signup(code,'')}catch(e){}}}
+  if(!token()){showWelcome('');return}
+  if(hasData()||sget(K.link)||sget(K.alink)){screen='app';if(hasData())rebuild()}
+  await afterSignIn()})();
+</script>
+</body>
+</html>
