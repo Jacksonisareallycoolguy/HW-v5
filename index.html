@@ -312,7 +312,7 @@ function visible(e){
   if($('hide').checked&&done[e.id])return false;
   return true}
 function itemEl(e,now){
-  const isEv=e.kind==='event';
+  const isEv=e.kind==='event'&&e.src!=='custom';
   const late=!isEv&&e.due<now&&!done[e.id],soon=!late&&e.due-now<864e5&&e.due>=now;
   const el=document.createElement('div');el.className='item'+(done[e.id]?' done':'');
   el.style.borderLeftColor=colorOf(e.course);
@@ -322,12 +322,12 @@ function itemEl(e,now){
     lead.onchange=()=>{lead.checked?done[e.id]=1:delete done[e.id];sset(K.done,JSON.stringify(done));syncOp({op:'done_set',id:e.id,done:lead.checked});render()}}
   const box=document.createElement('div'),t=document.createElement('div');t.className='t';
   if(/^https?:/i.test(e.url)){const a=document.createElement('a');a.href=e.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=e.title;t.appendChild(a)}else t.textContent=e.title;
-  if(e.src==='custom'){const g=document.createElement('span');g.className='tag';g.textContent=e.kind==='event'?'Event':e.kind==='task'?'Task':'Custom';t.appendChild(g)}
+  if(e.src==='custom'){const g=document.createElement('span');g.className='tag';g.textContent=e.seriesId?'Repeats':'Custom';t.appendChild(g)}
   const meta=document.createElement('div');meta.className='meta';
   const du=document.createElement('span');du.className='due'+(late?' late':soon?' soon':'');du.textContent=rel(e.due,now);
   const cn=document.createElement('span');cn.className='cname';cn.style.color=colorOf(e.course);cn.textContent=e.course;
   meta.append(du,' \u2013 '+fmtDay(e.due)+(e.allDay?'':', '+fmtTime(e.due))+' \u2013 ',cn);
-  if(e.src==='custom'){const b=document.createElement('button');b.type='button';b.className='linkbtn';b.textContent='Edit';b.setAttribute('aria-label','Edit '+e.title);b.onclick=()=>openSheet(e.id);meta.appendChild(b)}
+  if(e.src==='custom'){const b=document.createElement('button');b.type='button';b.className='linkbtn';b.textContent='Edit';b.setAttribute('aria-label','Edit '+e.title);b.onclick=()=>openSheet(e.seriesId||e.id);meta.appendChild(b)}
   box.append(t,meta);el.append(lead,box);return el}
 
 /* ---------- list view ---------- */
@@ -404,7 +404,17 @@ function openSheet(id){
   $('cdate').value=c?c.date:isoDate(view==='cal'&&sel?sel:new Date());
   $('call').checked=c?!c.time:true;$('ctime').value=c&&c.time?c.time:'';$('timewrap').hidden=$('call').checked;
   courseOptions(c?c.course:'Personal');
-  $('sheet').showModal();$('ctitle').focus()}
+  const recurrence=c&&c.recurrence?c.recurrence:{};
+  $('crepeat').value=recurrence.frequency||'none';$('cuntil').value=recurrence.until||'';
+  const days=recurrence.days||[new Date($('cdate').value+'T12:00:00').getDay()];
+  for(const cb of $('cweekdays').querySelectorAll('input'))cb.checked=days.includes(+cb.value);
+  updateRepeatUI();$('sheet').showModal();$('ctitle').focus()}
+function updateRepeatUI(){
+  const f=$('crepeat').value;
+  $('crepeatopts').hidden=f==='none';
+  $('cweekopts').hidden=f!=='weekly'&&f!=='biweekly';
+}
+$('crepeat').onchange=updateRepeatUI;
 $('fab').onclick=()=>openSheet(null);
 $('call').onchange=()=>{$('timewrap').hidden=$('call').checked;if(!$('call').checked&&!$('ctime').value)$('ctime').value='09:00'};
 $('ccourse').onchange=()=>{const n=$('ccourse').value==='__new';$('cnew').hidden=!n;if(n)$('cnew').focus()};
@@ -451,7 +461,7 @@ function showApp(on){$('welcome').hidden=true;$('setup').hidden=on;$('app').hidd
 function rebuild(){
   const all=[];
   for(const s of SOURCES){const t=sget(s.ics);if(t&&linkOf(s))all.push(...parseICS(t,srcOpts(s)))}
-  for(const c of custom){const e=customToEvent(c);if(e)all.push(e)}
+  for(const c of custom)all.push(...customOccurrences(c))
   all.sort((a,b)=>a.due-b.due);events=all;
   const prev=$('course').value;
   const cs=['All',...[...new Set(all.map(e=>e.course))].sort()];
