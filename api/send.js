@@ -4,6 +4,7 @@ const webpush = require('web-push');
 const { sb, configured, auth, bearer, safeEqual, bodyOf, reply, dec } = require('./_lib/common');
 const { fetchFeed } = require('./_lib/feed');
 const { parseICS } = require('./_lib/ics');
+const { occursOn } = require('./_lib/recurrence');
 
 const WINDOW_MIN = 90; // a reminder can go out up to 90 minutes after its set time, in case a run is missed
 const pad = n => String(n).padStart(2, '0');
@@ -38,7 +39,7 @@ async function itemsFor(profile, target, tz) {
   ]);
   const dr = await sb('done_items?profile_id=eq.' + profile.id + '&select=id&limit=5000');
   const done = new Set(dr.ok ? (await dr.json()).map(r => r.id) : []);
-  const cr = await sb('custom_items?profile_id=eq.' + profile.id + '&date=eq.' + target + '&select=id,title,type,time,course');
+  const cr = await sb('custom_items?profile_id=eq.' + profile.id + '&date=lte.' + target + '&select=id,title,type,date,time,course,recurrence&limit=2000');
   const custom = cr.ok ? await cr.json() : [];
   const out = [];
   for (const e of [...canvas, ...apple]) {
@@ -46,7 +47,9 @@ async function itemsFor(profile, target, tz) {
     out.push({ title: e.title, course: e.course, time: eventTime(e, tz), sort: e.allDay ? -1 : e.due.getTime() });
   }
   for (const c of custom) {
-    if (done.has(c.id)) continue;
+    if (!occursOn(c, target)) continue;
+    const occurrenceId=c.recurrence&&c.recurrence.frequency?c.id+'@'+target:c.id;
+    if (done.has(occurrenceId)) continue;
     out.push({ title: c.title, course: c.course, time: c.time ? fmt12(+c.time.slice(0, 2), +c.time.slice(3, 5)) : '', sort: c.time ? toMin(c.time) : -1 });
   }
   return out.sort((a, b) => a.sort - b.sort);
