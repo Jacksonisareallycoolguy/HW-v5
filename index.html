@@ -251,6 +251,25 @@ function parseICS(text,o){
       if(d<wS||d>wE)continue;
       out.push({id:(o.src||'x')+':'+uid+(f.RRULE?'@'+d.getTime():''),title,course,due:d,allDay:ds.allDay,url:(f.URL||'').trim(),src:o.src||'x',kind:o.kind||'assignment'})}}
   return out.sort((a,b)=>a.due-b.due)}
+/* Recurring custom items are generated from one saved series. */
+function customDates(c,from,to) {
+  const r=c.recurrence;if(!r||!r.frequency)return [c.date];
+  const start=new Date(c.date+'T12:00:00'),limit=new Date((r.until&&r.until<to?r.until:to)+'T12:00:00');
+  if(!Number.isFinite(start.getTime())||!Number.isFinite(limit.getTime()))return [];
+  const out=[],days=Array.isArray(r.days)?r.days.map(Number):[];
+  for(let d=new Date(start),i=0;d<=limit&&i<10000;d.setDate(d.getDate()+1),i++){
+    const date=isoDate(d);if(date<from)continue;
+    const elapsed=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(start.getFullYear(),start.getMonth(),start.getDate()))/864e5);
+    const weeks=Math.floor((elapsed+start.getDay())/7);
+    if(r.frequency==='daily'||(r.frequency==='weekly'&&weeks>=0&&days.includes(d.getDay()))||(r.frequency==='biweekly'&&weeks%2===0&&days.includes(d.getDay()))||(r.frequency==='monthly'&&d.getDate()===start.getDate()))out.push(date);
+  }return out;
+}
+function customOccurrences(c) {
+  if(!c.recurrence||!c.recurrence.frequency){const e=customToEvent(c);return e?[e]:[]}
+  const now=new Date(),from=isoDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()-31));
+  const to=isoDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+400));
+  return customDates(c,from,to).map(date=>customToEvent({...c,id:c.id+'@'+date,date})).filter(Boolean).map(e=>({...e,seriesId:c.id}));
+}
 function customToEvent(c){
   const m=String(c.date).match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;
   let d=new Date(+m[1],+m[2]-1,+m[3],23,59),allDay=true;
