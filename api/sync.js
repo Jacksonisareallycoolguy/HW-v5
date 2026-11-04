@@ -10,7 +10,18 @@ function cleanItem(x) {
   if (!TYPES.includes(x.type) || !/^\d{4}-\d{2}-\d{2}$/.test(String(x.date))) return null;
   const time = x.time ? String(x.time) : null;
   if (time && !validTime(time)) return null;
-  return { id, title, type: x.type, date: String(x.date), time, course };
+  let recurrence = null;
+  if (x.recurrence != null) {
+    const rule=x.recurrence, frequency=rule.frequency;
+    if(!rule||typeof rule!=='object'||!['daily','weekly','biweekly','monthly'].includes(frequency))return null;
+    const days=Array.isArray(rule.days)?rule.days:[];
+    if(days.length>7||days.some(d=>!Number.isInteger(d)||d<0||d>6))return null;
+    if(['weekly','biweekly'].includes(frequency)&&!days.length)return null;
+    const until=rule.until||null;
+    if(until&&(!/^\\d{4}-\\d{2}-\\d{2}$/.test(until)||until<x.date))return null;
+    recurrence={frequency,days,until};
+  }
+  return { id, title, type: x.type, date: String(x.date), time, course, recurrence };
 }
 const cleanId = id => (typeof id === 'string' && id.length > 0 && id.length <= 300 ? id : null);
 
@@ -22,7 +33,7 @@ module.exports = safe(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const [c, d] = await Promise.all([
-        sb('custom_items?profile_id=eq.' + pid + '&select=id,title,type,date,time,course&order=date.asc&limit=2000'),
+        sb('custom_items?profile_id=eq.' + pid + '&select=id,title,type,date,time,course,recurrence&order=date.asc&limit=2000'),
         sb('done_items?profile_id=eq.' + pid + '&select=id&limit=5000')
       ]);
       if (!c.ok || !d.ok) return reply(res, 502, { error: 'Could not load your data.' });
