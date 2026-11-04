@@ -428,7 +428,12 @@ $('csave').onclick=()=>{
   if(!course){$('cerr').textContent='Name the new course.';return}
   const time=$('call').checked?'':$('ctime').value;
   if(!$('call').checked&&!time){$('cerr').textContent='Pick a time, or choose All day.';return}
-  const item={id:editingId||'c:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),title,type:$('ctype').value,date,time,course};
+  const frequency=$('crepeat').value,until=$('cuntil').value;
+  if(frequency!=='none'&&until&&until<date){$('cerr').textContent='End date must be after the first date.';return}
+  const days=[...$('cweekdays').querySelectorAll('input:checked')].map(cb=>+cb.value);
+  if(['weekly','biweekly'].includes(frequency)&&!days.length){$('cerr').textContent='Select a repeat day.';return}
+  const recurrence=frequency==='none'?null:{frequency,days:['weekly','biweekly'].includes(frequency)?days:[],until:until||null};
+  const item={id:editingId||'c:'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),title,type:$('ctype').value,date,time,course,recurrence};
   if(editingId)custom=custom.map(x=>x.id===editingId?item:x);else custom.push(item);
   sset(K.custom,JSON.stringify(custom));syncOp({op:'custom_upsert',item});$('sheet').close();
   const d=customToEvent(item);if(d&&view==='cal'){sel=day0(d.due);month=new Date(d.due.getFullYear(),d.due.getMonth(),1)}
