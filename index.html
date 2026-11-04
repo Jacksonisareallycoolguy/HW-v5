@@ -149,8 +149,8 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 <dialog id="sheet" aria-labelledby="stitle">
   <div class="sheet">
     <h3 id="stitle">Add item</h3>
-    <label class="f" for="ctype">Type</label>
-    <select id="ctype"><option value="assignment">Assignment</option><option value="task">Task</option><option value="event">Event</option></select>
+    <label class="f" for="ctype" hidden>Type</label>
+    <select id="ctype" hidden><option value="assignment">Assignment</option><option value="task">Task</option><option value="event">Event</option></select>
     <label class="f" for="ctitle">Title</label>
     <input type="text" id="ctitle" autocomplete="off" maxlength="120">
     <label class="f" for="cdate">Date</label>
