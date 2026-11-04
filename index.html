@@ -157,7 +157,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
     <input type="date" id="cdate">
     <label class="chk"><input type="checkbox" id="call" checked> All day</label>
     <div id="timewrap" hidden><label class="f" for="ctime">Time</label><input type="time" id="ctime"></div>
-    <label class="f" for="crepeat">Repeat</label><select id="crepeat"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option><option value="monthly">Monthly</option></select><label class="f" for="ccourse">Course or calendar</label>
+    <label class="f" for="crepeat">Repeat</label><select id="crepeat"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option><option value="monthly">Monthly</option></select><div id="crepeatopts" hidden><div id="cweekopts" hidden><label class="f">Repeat on</label><div class="row" id="cweekdays" style="flex-wrap:wrap;gap:8px"><label><input type="checkbox" value="0"> Sun</label><label><input type="checkbox" value="1"> Mon</label><label><input type="checkbox" value="2"> Tue</label><label><input type="checkbox" value="3"> Wed</label><label><input type="checkbox" value="4"> Thu</label><label><input type="checkbox" value="5"> Fri</label><label><input type="checkbox" value="6"> Sat</label></div></div><label class="f" for="cuntil">Repeat until (optional)</label><input id="cuntil" type="date"></div><label class="f" for="ccourse">Course or calendar</label>
     <select id="ccourse"></select>
     <input type="text" id="cnew" placeholder="New course name" maxlength="40" hidden>
     <div class="err" id="cerr" role="alert"></div>
